@@ -20,6 +20,9 @@ const userSchema = new mongoose.Schema({
   reservations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Reservation' }], // Un PetSitter peut avoir plusieurs réservations
   latitude: { type: Number, required: function() { return this.role === 'petSitter'; } },
   longitude: { type: Number, required: function() { return this.role === 'petSitter'; } },
+  disponibilite: { type: [String], default: [], required: function() { return this.role === 'petSitter'; } }, //(par exemple : ['Lundi 9h-12h', 'Mercredi 14h-18h'])
+  specialite: { type: String, required: function() { return this.role === 'veterinaire' || this.role === 'coach'; } } 
+
 
 
 }, {

@@ -1,8 +1,10 @@
+require('dotenv').config();
+const mongoose = require('mongoose'); 
 const Utilisateur = require('../models/user');
-const Reservation = require('../models/Reservation'); // On suppose qu'il existe un modèle de réservation
+const Reservation = require('../models/reservation'); 
+const Animal = require('../models/animal');  
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-
 
 
 // Inscription d'un utilisateur
@@ -11,7 +13,7 @@ const inscrireUtilisateur = async (req, res) => {
       const { 
         nom, prenom, email, motDePasse, role,
         adresse, ville, gouvernement, codePostal, telephone, age, civilite,
-        latitude, longitude
+        latitude, longitude, disponibilite, specialite
       } = req.body; 
   
       if (!['petOwner', 'petSitter', 'admin', 'coach', 'veterinaire'].includes(role)) {
@@ -27,7 +29,9 @@ const inscrireUtilisateur = async (req, res) => {
         nom, prenom, email, motDePasse, role,
         adresse, ville, gouvernement, codePostal, telephone, age, civilite,
         latitude: role === 'petSitter' ? latitude : undefined,
-        longitude: role === 'petSitter' ? longitude : undefined
+        longitude: role === 'petSitter' ? longitude : undefined,
+        disponibilite: role === 'petSitter' ? disponibilite || [] : undefined,  
+        specialite: (role === 'veterinaire' || role === 'coach') ? specialite : undefined 
       });
   
       await utilisateur.inscrire();
@@ -53,14 +57,15 @@ const seConnecterUtilisateur = async (req, res) => {
       if (!motDePasseValide) {
         return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
       }
-  
-      const token = jwt.sign({ user: { id: utilisateur._id, role: utilisateur.role } }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
+
+      const token = jwt.sign({ user: { id: utilisateur._id, role: utilisateur.role } }, "mysecretkey" , { expiresIn: process.env.JWT_EXPIRES_IN });
   
       res.json({ token, utilisateur });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
   };
+  
 
 //Méthode pour modifier les informations d'utilisateur
   const gererProfil = async (req, res) => {
@@ -143,7 +148,7 @@ const gererDisponibilite = async (req, res) => {
     const { utilisateurId, disponibilite } = req.body;
 
     // Trouver l'utilisateur et vérifier qu'il est bien un PetSitter
-    const petSitter = await Utilisateur.findById(utilisateurId);
+    const petSitter = await Utilisateur.findById(new mongoose.Types.ObjectId(utilisateurId));
     if (!petSitter || petSitter.role !== 'petSitter') {
       return res.status(404).json({ error: 'PetSitter non trouvé' });
     }
@@ -186,17 +191,16 @@ const gererUtilisateur = async (req, res) => {
     switch (action) {
       case 'ajouter':
         // Ajouter un nouvel utilisateur
-        utilisateur = new Utilisateur(updatedData); // Par exemple, ajouter un PetOwner, cela peut être généralisé
+        utilisateur = new Utilisateur(updatedData); 
         await utilisateur.inscrire();
         break;
       case 'modifier':
         // Modifier un utilisateur existant
-        utilisateur = await Utilisateur.findById(utilisateurId); // Tu peux aussi gérer d'autres types d'utilisateurs
+        utilisateur = await Utilisateur.findById(utilisateurId); 
         if (!utilisateur) {
           return res.status(404).json({ error: 'Utilisateur non trouvé' });
         }
-        Object.assign(utilisateur, updatedData); // Mise à jour des informations
-        await utilisateur.save();
+        Object.assign(utilisateur, updatedData); 
         break;
       case 'supprimer':
         // Supprimer un utilisateur
@@ -218,20 +222,27 @@ const gererUtilisateur = async (req, res) => {
 
 // Consulter les réservations de tous les Pet Sitters pour un Admin
 const consulterReservationsAdmin = async (req, res) => {
-    try {
-      // Trouver toutes les réservations, tu peux ajouter un filtrage si nécessaire
-      const reservations = await Reservation.find().populate('petSitter').populate('petOwner');
-      
-      // Si aucune réservation n'est trouvée
-      if (!reservations || reservations.length === 0) {
-        return res.status(404).json({ error: 'Aucune réservation trouvée' });
-      }
-  
-      res.status(200).json({ reservations });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
+  try {
+    const { petSitterId } = req.query; 
+    
+    let reservations;
+    if (petSitterId) {
+      reservations = await Reservation.find({ petSitter: petSitterId }).populate('petSitter').populate('petOwner');
+    } else {
+      reservations = await Reservation.find().populate('petSitter').populate('petOwner');
     }
-  };
+    
+    // Si aucune réservation n'est trouvée
+    if (!reservations || reservations.length === 0) {
+      return res.status(404).json({ error: 'Aucune réservation trouvée' });
+    }
+
+    res.status(200).json({ reservations });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 
 
 // Ajouter un animal au profil d'un PetOwner
@@ -245,8 +256,14 @@ const ajouterAnimal = async (req, res) => {
       return res.status(404).json({ error: 'PetOwner non trouvé' });
     }
 
-    // Ajouter l'animal
-    await utilisateur.ajouterAnimal(animalData);
+    // Créer un nouvel animal à partir des données reçues
+    const nouvelAnimal = new Animal(animalData);
+    await nouvelAnimal.save();  // Sauvegarde l'animal dans la collection Animal
+
+    // Ajouter l'ID de l'animal au tableau 'animaux' du PetOwner
+    utilisateur.animaux.push(nouvelAnimal._id);
+    await utilisateur.save(); // Sauvegarde le PetOwner avec l'animal ajouté
+
     res.status(200).json({ message: 'Animal ajouté avec succès' });
   } catch (err) {
     res.status(500).json({ error: err.message });

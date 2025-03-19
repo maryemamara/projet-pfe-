@@ -2,11 +2,7 @@ const mongoose = require('mongoose');
 
 // Schéma de la réservation
 const reservationSchema = new mongoose.Schema({
-  id: {
-    type: Number, // L'ID sous forme de nombre entier
-    required: true,
-    unique: true
-  },
+ 
   statut: {
     type: String,
     enum: ['en attente', 'accepté', 'terminé'], // Statut de la réservation
@@ -23,7 +19,6 @@ const reservationSchema = new mongoose.Schema({
   }
 });
 
-// Création du modèle de réservation
-const Reservation = mongoose.model('Reservation', reservationSchema);
 
-module.exports = Reservation;
+
+module.exports = mongoose.model('Reservation', reservationSchema);

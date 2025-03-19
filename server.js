@@ -1,11 +1,19 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const userRoutes = require('./routes/userRoutes');
+const reservationRoutes = require('./routes/reservationRoutes');
+const animalRoutes = require('./routes/animalRoutes');
+const chatRoutes = require('./routes/chatRoutes');
+const feedbackRoutes = require('./routes/feedbackRoutes');
+
+
+
 const dotenv = require('dotenv');
 const cors = require('cors');
-const app = express();
 dotenv.config();
+require('dotenv').config();
 
+const app = express();
 app.use(cors());
 app.use('/uploads', express.static('uploads'));
 
@@ -14,6 +22,12 @@ app.use('/uploads', express.static('uploads'));
 // Middleware
 app.use(express.json()); // Pour analyser les requêtes JSON
 app.use('/api/utilisateurs', userRoutes); // Routes des utilisateurs
+app.use('/api/reservations', reservationRoutes);
+app.use('/api/animals', animalRoutes);
+app.use('/api/chats', chatRoutes);
+app.use('/api/feedbacks', feedbackRoutes);
+
+
 
 // Connexion à la base de données MongoDB
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
